@@ -1,0 +1,49 @@
+!include without_loadgen.yaml
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgenerator
+  namespace: default
+  labels:
+    app: loadgenerator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loadgenerator
+  template:
+    metadata:
+      labels:
+        app: loadgenerator
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - loo-svc
+                        - foo-svc
+                        - bar-svc
+                        - loadgenerator
+                        - redis
+                topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: curl
+          image: docker.io/litmuschaos/curl:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -exc
+            - |
+              while true
+              do
+              curl -i foo-svc
+              sleep 3
+              done

@@ -7,13 +7,13 @@ Spring Boot项目利用Jaeger做分布式Tracing的例子。
 这个项目一共有3个service：`foo-svc`、`bar-svc`、`loo-svc`。它们的调用链如下：
 
 1. foo-svc 调用 bar-svc
-   1. bar-svc 调用 redis
-   1. bar-svc 调用 h2
-   1. bar-svc 调用 loo-svc
-      1. loo-svc 调用 redis
-      1. loo-svc 调用 h2  
+    1. bar-svc 调用 redis
+    1. bar-svc 调用 h2
+    1. bar-svc 调用 loo-svc
+        1. loo-svc 调用 redis
+        1. loo-svc 调用 h2
 
-## 例子一：本地运行
+## 例子一：本地运行环境
 
 本地运行的方法很简单
 
@@ -27,39 +27,48 @@ Spring Boot项目利用Jaeger做分布式Tracing的例子。
 
 **关于Redis的Tracing**
 
-目前[opentracing java-spring-jaeger][opentracing java-spring-jaeger]还没有提供`spring-data-redis`的Auto Configuration，因此需要自己引入[opentracing java-redis-client][opentracing java-redis-client]项目。
+目前[opentracing java-spring-jaeger][opentracing java-spring-jaeger]
+还没有提供`spring-data-redis`的Auto
+Configuration，因此需要自己引入[opentracing java-redis-client][opentracing java-redis-client]
+项目。
 
-本例子是使用`BeanPostProcessor`来instrument的，见`RedisConnectionFactoryBeanPostProcessor.java`：
+本例子是使用`BeanPostProcessor`
+来instrument的，见`RedisConnectionFactoryBeanPostProcessor.java`：
 
 ```java
+
 @Component
 public class RedisConnectionFactoryBeanPostProcessor implements BeanPostProcessor {
 
-  private Tracer tracer;
+    private Tracer tracer;
 
-  public RedisConnectionFactoryBeanPostProcessor(Tracer tracer) {
-    this.tracer = tracer;
-  }
-
-  @Override
-  public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-    if (bean instanceof RedisConnectionFactory) {
-      return new TracingRedisConnectionFactory((RedisConnectionFactory) bean, false, tracer);
+    public RedisConnectionFactoryBeanPostProcessor(Tracer tracer) {
+        this.tracer = tracer;
     }
-    return bean;
-  }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if (bean instanceof RedisConnectionFactory) {
+            return new TracingRedisConnectionFactory((RedisConnectionFactory) bean, false, tracer);
+        }
+        return bean;
+    }
 
 }
 ```
 
-不过对[opentracing java-redis-client][opentracing java-redis-client]的源代码观察发现，似乎并不是`RedisConnection`和`ReactiveRedisConnection`的所有操作都会做tracing。
-特别是`ReactiveRedisConnection`，几乎所有操作都没有做tracing（写本文是[opentracing java-redis-client][opentracing java-redis-client]版本0.0.8）。
+不过对[opentracing java-redis-client][opentracing java-redis-client]
+的源代码观察发现，似乎并不是`RedisConnection`和`ReactiveRedisConnection`
+的所有操作都会做tracing。
+特别是`ReactiveRedisConnection`
+，几乎所有操作都没有做tracing（写本文是[opentracing java-redis-client][opentracing java-redis-client]
+版本0.0.8）。
 
 **清理**
 
 执行`docker-compose down`
 
-## 例子二：运行在已经安装了Istio的K8S中
+## 例子二：Istio 运行环境
 
 **前置要求**
 
@@ -74,22 +83,61 @@ public class RedisConnectionFactoryBeanPostProcessor implements BeanPostProcesso
 1. 把`06-foo-ingress.yaml`里的`<hostname>`改成你自己的域名（你也可以自行配置，如果你没有域名那自行查询文档解决）
 1. 然后到`k8s`目录下，执行`kubectl apply -f .`
 1. 本例子给了两种暴露`foo-svc`方法：
-   1. 通过nginx ingress暴露：`curl http://ingress-test.<hostname>/sb-jaeger-tracing-demo/`
-   1. 通过Istio Gateway暴露：`curl http://istio-test.<hostname>/sb-jaeger-tracing-demo/`
+    1. 通过nginx
+       ingress暴露：`curl http://ingress-test.<hostname>/sb-jaeger-tracing-demo/`
+    1. 通过Istio
+       Gateway暴露：`curl http://istio-test.<hostname>/sb-jaeger-tracing-demo/`
 1. 访问`jaeger-query`
 
-正常来说，你会发现通过nginx ingress访问的时候并不记录tracing（见[Issue #7963][istio-issue-7963]）。只有通过Istio Gateway访问的时候才会记录tracing，大致样子如下：
+正常来说，你会发现通过nginx
+ingress访问的时候并不记录tracing（见[Issue #7963][istio-issue-7963]）。只有通过Istio
+Gateway访问的时候才会记录tracing，大致样子如下：
 
 ![Figure-2](assets/figure-2.png)
 
 你会发现比起本地运行的tracing多了很多层级，刨除istio相关component的tracing，大体上和本地运行的tracing差不多，但是多了一些层级。
 这些多出来的层级是由于istio自动注入的envoy sidecar产生的。
 
-注意在`01-namespace.yaml`里的这段配置：`JAEGER_UDP_SENDER_HOST: jaeger-agent.istio-system.svc.cluster.local`，这个是istio的jaeger-agent的cluster DNS name。
+注意在`01-namespace.yaml`
+里的这段配置：`JAEGER_UDP_SENDER_HOST: jaeger-agent.istio-system.svc.cluster.local`
+，这个是istio的jaeger-agent的cluster DNS name。
 
 **清理**
 
 到`k8s`目录下，执行`kubectl delete -f .`
+
+## 例子三：原生 K8s 运行环境
+
+**推送镜像**
+容器镜像服务可以选用私仓，我使用 `registry.cn-beijing.aliyuncs.com`
+
+```sh
+cd foo-svc/
+docker build . -t registry.cn-beijing.aliyuncs.com/obser/foo-svc:latest
+docker push registry.cn-beijing.aliyuncs.com/obser/foo-svc:latest
+```
+
+**拉取镜像**
+K8s 拉取私仓中的镜像，需要迁移相应的登录凭证。
+
+1. 制作 secret
+
+```
+kubectl create secret generic docker-config-vanessa \
+    --from-file=.dockerconfigjson=/root/.docker/config.json \
+    --type=kubernetes.io/dockerconfigjson
+```
+
+2. 使用secret
+   附加这一段：
+
+```
+  containers:
+  - name: private-reg-container
+    image: <your-private-image>
+  imagePullSecrets:
+  - name: docker-config-vanessa
+```
 
 ## 环境变量
 
@@ -105,24 +153,37 @@ public class RedisConnectionFactoryBeanPostProcessor implements BeanPostProcesso
 | `JAEGER_UDP_SENDER_HOST`         | `localhost`           | all                 |             |
 | `OPENTRACING_SPRING_WEB_ENABLED` | `true`                | all                 | 是否为spring web开启opentracing |
 
-## 使用的开源项目
+## 参考
+
+### 使用的开源项目
 
 其实本项目没有做什么事情，都是使用了开源项目来利用Jaeger做tracing的，相关的项目如下：
 
 * [OpenTracing Java][opentracing-java]
 * [OpenTracing java-spring-jaeger][opentracing java-spring-jaeger]
-  * [OpenTracing java-spring-web][opentracing java-spring-web]
-  * [OpenTracing java-spring-cloud][opentracing java-spring-cloud]
+    * [OpenTracing java-spring-web][opentracing java-spring-web]
+    * [OpenTracing java-spring-cloud][opentracing java-spring-cloud]
 * [更多OpenTracing java instrumentation][opentracing java]
 * [OpenTracing Tutorial - Java][opentracing-tutorial-java]
 
-
 [k8s-learn-istio-install]: https://github.com/chanjarster/k8s-learn/tree/master/addons-guide/istio/install
+
 [opentracing java-spring-jaeger]: https://github.com/opentracing-contrib/java-spring-jaeger
+
 [opentracing java-spring-web]:https://github.com/opentracing-contrib/java-spring-web
+
 [opentracing java-spring-cloud]:https://github.com/opentracing-contrib/java-spring-cloud
+
 [opentracing java]: https://github.com/opentracing-contrib?utf8=%E2%9C%93&q=&type=&language=java
+
 [opentracing-tutorial-java]: https://github.com/yurishkuro/opentracing-tutorial/tree/master/java
+
 [istio-issue-7963]: https://github.com/istio/istio/issues/7963
+
 [opentracing-java]: https://github.com/opentracing/opentracing-java
+
 [opentracing java-redis-client]: https://github.com/opentracing-contrib/java-redis-client
+
+### 其他
+
+[Pull an Image from a Private Docker Registry | Kubernetes](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
