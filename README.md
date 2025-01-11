@@ -1,75 +1,50 @@
-# spring-boot-istio-jaeger-demo
+# spring distributed tracing demo
 
-Spring Boot项目利用Jaeger做分布式Tracing的例子。
+Spring Boot 项目利用 Jaeger 做分布式追踪的示例。
 
 ## 项目介绍
 
-这个项目一共有3个service：`foo-svc`、`bar-svc`、`loo-svc`。它们的调用链如下：
+这个项目一共有三个 spring service，分别是 `foo-svc`、`bar-svc`、`loo-svc`。有两个
+proxy，分别是 `Nginx`、`Envoy`。有一个 `Redis` 数据库。
 
-1. foo-svc 调用 bar-svc
-    1. bar-svc 调用 redis
-    1. bar-svc 调用 h2
-    1. bar-svc 调用 loo-svc
-        1. loo-svc 调用 redis
-        1. loo-svc 调用 h2
+调用关系：
 
-服务拓补图：
-![](assets/service-map.png)
+1. 用户请求 `Nginx`
+2. `Nginx` 调用 `foo-svc`
+3. `foo-svc` 调用 `Envoy`
+4. `Envoy` 调用 `bar-svc`
+    1. `bar-svc` 调用 `Redis`
+    2. `bar-svc` 调用 `loo-svc`
+        1. `loo-svc` 调用 `Redis`
+5. `Jaeger` 追踪 `foo-svc`、`bar-svc`、`loo-svc`。
 
 追踪火焰图：
-![img.png](assets/tracing-flamegraph.png)
+![img.png](assets/trace-tree_spring.png)
 
-## 例子一：本地运行环境
+服务拓补图：
+![](assets/service-map_spring.png)
 
-本地运行的方法很简单
+## Docker 运行环境
 
-1. cd到本项目所在目录，执行`docker-compose up`就行了。
-1. 访问foo-svc：`curl http://localhost:8080`
-1. 查看Jaeger结果：[http://localhost:16686/](http://localhost:16686/)
+**部署**
 
-如果正常启动，你会看到这样的结果；
+1. 切到
+   deploy/docker，执行：`docker-compose up -f docker-compose_with_proxy.yaml -d`。
+2. 访问 Nginx：`curl http://localhost:80`。
+3. 查看 Jaeger：[http://localhost:16686/](http://localhost:16686/)。
 
-![Figure-1](assets/figure-1.png)
+## K8s 运行环境
 
-## 例子二：Istio 运行环境
+**部署**
 
-**前置要求**
-
-1. 首先你得有一个K8S集群
-1. [安装了Istio][k8s-learn-istio-install]
-1. 并且这个Istio启用了Jaeger
-1. 把`istio-system`下的`jaeger-query` Service暴露出来能够从集群外访问
-
-**运行步骤**
-
-1. cd到本项目的`k8s`目录
-1. 把`06-foo-ingress.yaml`里的`<hostname>`改成你自己的域名（你也可以自行配置，如果你没有域名那自行查询文档解决）
-1. 然后到`k8s`目录下，执行`kubectl apply -f .`
-1. 本例子给了两种暴露`foo-svc`方法：
-    1. 通过nginx
-       ingress暴露：`curl http://ingress-test.<hostname>/sb-jaeger-tracing-demo/`
-    1. 通过Istio
-       Gateway暴露：`curl http://istio-test.<hostname>/sb-jaeger-tracing-demo/`
-1. 访问`jaeger-query`
-
-正常来说，你会发现通过nginx
-ingress访问的时候并不记录tracing（见[Issue #7963][istio-issue-7963]）。只有通过Istio
-Gateway访问的时候才会记录tracing，大致样子如下：
-
-![Figure-2](assets/figure-2.png)
-
-你会发现比起本地运行的tracing多了很多层级，刨除istio相关component的tracing，大体上和本地运行的tracing差不多，但是多了一些层级。
-这些多出来的层级是由于istio自动注入的envoy sidecar产生的。
-
-注意在`01-namespace.yaml`
-里的这段配置：`JAEGER_UDP_SENDER_HOST: jaeger-agent.istio-system.svc.cluster.local`
-，这个是istio的jaeger-agent的cluster DNS name。
-
-## 例子三：原生 K8s 运行环境
+1. 切到 deploy/k8s，执行：`kubectl apply all-in-one.yaml`。
+2. 使用 `kubectl port-forward` 转发 8080 和 16686 端口到本地。
+3. 访问 foo-svc：`curl http://127.0.0.1:8080`。
+3. 查看 Jaeger：[http://localhost:16686/](http://localhost:16686/)。
 
 **推拉镜像**
 
-容器镜像服务可以选用私仓，我使用 `registry.cn-beijing.aliyuncs.com`
+容器镜像服务可以选用私仓，我使用 `registry.cn-beijing.aliyuncs.com`。
 
 ```sh
 cd foo-svc/
@@ -120,4 +95,4 @@ docker push registry.cn-beijing.aliyuncs.com/obser/foo-svc:latest
 
 [opentracing java-redis-client]: https://github.com/opentracing-contrib/java-redis-client
 
-[Pull an Image from a Private Docker Registry | Kubernetes](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
+* [Pull an Image from a Private Docker Registry | Kubernetes](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
