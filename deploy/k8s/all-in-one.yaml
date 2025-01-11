@@ -1,11 +1,18 @@
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: spring
+
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: demo-config
-  namespace: default
+  namespace: spring
 data:
   REDIS_HOST: redis-master
+
 ---
 apiVersion: v1
 kind: Service
@@ -14,7 +21,7 @@ metadata:
     app: redis
     release: redis
   name: redis-master
-  namespace: default
+  namespace: spring
 spec:
   type: ClusterIP
   selector:
@@ -26,8 +33,9 @@ spec:
       port: 6379
       protocol: TCP
       targetPort: redis
+
 ---
-apiVersion: apps/v1 # apps/v1beta2
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   labels:
@@ -35,7 +43,7 @@ metadata:
     chart: redis-3.0.2
     release: redis
   name: redis-master
-  namespace: default
+  namespace: spring
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -66,7 +74,6 @@ spec:
                         - loo-svc
                         - foo-svc
                         - bar-svc
-                        - loadgenerator
                         - redis
                 topologyKey: "kubernetes.io/hostname"
       containers:
@@ -107,8 +114,6 @@ spec:
           volumeMounts:
             - mountPath: /bitnami/redis/data
               name: redis-data
-      imagePullSecrets:
-        - name: docker-config-vanessa
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       securityContext:
@@ -117,17 +122,20 @@ spec:
         runAsUser: 0
       terminationGracePeriodSeconds: 30
       volumes:
-        - emptyDir: {}
+        - emptyDir: { }
           name: redis-data
+      imagePullSecrets:
+        - name: ali
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: default
+  namespace: spring
   name: foo-svc
   labels:
     app: foo-svc
@@ -139,12 +147,13 @@ spec:
       name: http
   selector:
     app: foo-svc
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: foo-svc
-  namespace: default
+  namespace: spring
 spec:
   selector:
     matchLabels:
@@ -168,12 +177,11 @@ spec:
                         - loo-svc
                         - foo-svc
                         - bar-svc
-                        - loadgenerator
                         - redis
                 topologyKey: "kubernetes.io/hostname"
       containers:
         - name: foo-svc
-          image: registry.cn-beijing.aliyuncs.com/obser/foo-svc:latest
+          image: registry.cn-beijing.aliyuncs.com/obser/foo-svc:0.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -185,12 +193,13 @@ spec:
             - configMapRef:
                 name: demo-config
       imagePullSecrets:
-        - name: docker-config-vanessa
+        - name: ali
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: default
+  namespace: spring
   name: bar-svc
   labels:
     app: bar-svc
@@ -202,12 +211,13 @@ spec:
       name: http
   selector:
     app: bar-svc
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bar-svc
-  namespace: default
+  namespace: spring
 spec:
   selector:
     matchLabels:
@@ -231,12 +241,11 @@ spec:
                         - loo-svc
                         - foo-svc
                         - bar-svc
-                        - loadgenerator
                         - redis
                 topologyKey: "kubernetes.io/hostname"
       containers:
         - name: bar-svc
-          image: registry.cn-beijing.aliyuncs.com/obser/bar-svc:latest
+          image: registry.cn-beijing.aliyuncs.com/obser/bar-svc:0.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -248,12 +257,13 @@ spec:
             - configMapRef:
                 name: demo-config
       imagePullSecrets:
-        - name: docker-config-vanessa
+        - name: ali
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: default
+  namespace: spring
   name: loo-svc
   labels:
     app: loo-svc
@@ -265,12 +275,13 @@ spec:
       name: http
   selector:
     app: loo-svc
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: loo-svc
-  namespace: default
+  namespace: spring
 spec:
   selector:
     matchLabels:
@@ -294,12 +305,11 @@ spec:
                         - loo-svc
                         - foo-svc
                         - bar-svc
-                        - loadgenerator
                         - redis
                 topologyKey: "kubernetes.io/hostname"
       containers:
         - name: loo-svc
-          image: registry.cn-beijing.aliyuncs.com/obser/loo-svc:latest
+          image: registry.cn-beijing.aliyuncs.com/obser/loo-svc:0.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -311,4 +321,4 @@ spec:
             - configMapRef:
                 name: demo-config
       imagePullSecrets:
-        - name: docker-config-vanessa
+        - name: ali

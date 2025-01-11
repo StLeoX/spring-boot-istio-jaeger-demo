@@ -1,22 +1,20 @@
-!include without_loadgen.yaml
-
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: loadgenerator
-  namespace: default
+  name: loadgen
+  namespace: spring
   labels:
-    app: loadgenerator
+    app: loadgen
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: loadgenerator
+      app: loadgen
   template:
     metadata:
       labels:
-        app: loadgenerator
+        app: loadgen
     spec:
       affinity:
         podAntiAffinity:
@@ -28,15 +26,11 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - loo-svc
-                        - foo-svc
-                        - bar-svc
-                        - loadgenerator
-                        - redis
+                        - loadgen
                 topologyKey: "kubernetes.io/hostname"
       containers:
         - name: curl
-          image: docker.io/litmuschaos/curl:latest
+          image: registry.cn-beijing.aliyuncs.com/obser/curl:7.83.1
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
@@ -44,6 +38,8 @@ spec:
             - |
               while true
               do
-              curl -i foo-svc
-              sleep 3
+              curl -i foo-svc:8080  # request directly
+              sleep 1  # request interval
               done
+      imagePullSecrets:
+        - name: ali

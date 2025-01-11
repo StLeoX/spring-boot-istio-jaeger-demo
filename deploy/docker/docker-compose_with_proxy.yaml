@@ -1,0 +1,60 @@
+version: '3'
+
+name: spring
+
+services:
+  nginx:
+    image: registry.cn-beijing.aliyuncs.com/obser/nginx:1.26.2
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - foo-svc
+
+  redis:
+    image: registry.cn-beijing.aliyuncs.com/obser/redis:4.0.9
+    environment:
+      ALLOW_EMPTY_PASSWORD: 'yes'
+    ports:
+      - "6379:6379"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.6
+    ports:
+      - "16686:16686" # Jaeger UI.
+
+  foo-svc:
+    image: registry.cn-beijing.aliyuncs.com/obser/foo-svc:0.2.0
+    environment:
+      JAEGER_UDP_SENDER_HOST: jaeger
+    depends_on:
+      - envoy
+    links:
+      - redis
+      - jaeger
+
+  bar-svc:
+    image: registry.cn-beijing.aliyuncs.com/obser/bar-svc:0.2.0
+    environment:
+      JAEGER_UDP_SENDER_HOST: jaeger
+    links:
+      - loo-svc
+      - redis
+      - jaeger
+
+  loo-svc:
+    image: registry.cn-beijing.aliyuncs.com/obser/loo-svc:0.2.0
+    environment:
+      JAEGER_UDP_SENDER_HOST: jaeger
+    links:
+      - redis
+      - jaeger
+
+  envoy:
+    image: registry.cn-beijing.aliyuncs.com/obser/envoy:v1.18.4
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+    ports:
+      - "10000:10000" # Envoy Listener of listener_0.
+      - "9901:9901" # Envoy Admin.

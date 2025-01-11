@@ -5,7 +5,7 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  namespace: sb-jaeger-tracing-demo
+  namespace: spring
   name: foo-svc-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
@@ -14,7 +14,7 @@ spec:
   - host: ingress-test.<hostname>
     http:
       paths:
-      - path: /sb-jaeger-tracing-demo/
+      - path: /spring/
         backend:
           serviceName: foo-svc
           servicePort: http
@@ -25,8 +25,8 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  namespace: sb-jaeger-tracing-demo
-  name: sb-jaeger-tracing-demo-gateway
+  namespace: spring
+  name: spring-gateway
 spec:
   selector:
     istio: ingressgateway # use Istio default gateway implementation
@@ -41,19 +41,19 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  namespace: sb-jaeger-tracing-demo
+  namespace: spring
   name: foo-svc-vs
 spec:
   hosts:
   - "istio-test.<hostname>"
-  - "foo-svc.sb-jaeger-tracing-demo.svc.cluster.local"
+  - "foo-svc.spring.svc.cluster.local"
   gateways:
-  - sb-jaeger-tracing-demo-gateway
+  - spring-gateway
   - mesh
   http:
   - match:
     - uri:
-        prefix: /sb-jaeger-tracing-demo/
+        prefix: /spring/
     route:
     - destination:
         host: foo-svc
