@@ -51,7 +51,7 @@ services:
       - redis
       - jaeger
 
-  envoy-proxy: # todo 通过环境变量传递 Envoy Host。
+  envoy-proxy: # 针对 foo-svc:0.2.0 必须这个名字。todo 通过环境变量传递 Envoy Host。
     image: registry.cn-beijing.aliyuncs.com/obser/envoy:v1.18.4
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml

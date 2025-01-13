@@ -16,7 +16,7 @@ import java.util.Set;
 @RestController
 public class GreetingController {
 
-  private static final String template = "Hello, %s! I'm Bar. I'll query redis and h2.\n";
+  private static final String template = "Hello, %s! I'm Bar. I'll query redis.\n";
 
   @Autowired
   private JdbcTemplate jdbcTemplate;
