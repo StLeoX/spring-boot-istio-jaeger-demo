@@ -32,7 +32,8 @@ public class GreetingController {
       @RequestHeader HttpHeaders httpHeaders) {
 
     redisTemplate.boundValueOps("bar").get();
-    jdbcTemplate.queryForObject("select 'bar' from dual", String.class);
+    //注释掉 Query Span
+//    jdbcTemplate.queryForObject("select 'bar' from dual", String.class);
 
     String looGreeting = looGreetingService.greeting();
 
