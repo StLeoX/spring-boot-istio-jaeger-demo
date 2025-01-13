@@ -29,7 +29,7 @@ services:
     environment:
       JAEGER_UDP_SENDER_HOST: jaeger
     depends_on:
-      - envoy
+      - envoy-proxy
     links:
       - redis
       - jaeger
@@ -51,7 +51,7 @@ services:
       - redis
       - jaeger
 
-  envoy:
+  envoy-proxy: # todo 通过环境变量传递 Envoy Host。
     image: registry.cn-beijing.aliyuncs.com/obser/envoy:v1.18.4
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
